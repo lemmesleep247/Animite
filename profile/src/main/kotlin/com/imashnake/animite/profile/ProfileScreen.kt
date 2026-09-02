@@ -85,6 +85,7 @@ import androidx.core.graphics.toColorInt
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.imashnake.animite.api.anilist.EntryUpdateParams
+import com.imashnake.animite.api.anilist.sanitize.media.Media
 import com.imashnake.animite.api.anilist.sanitize.profile.User
 import com.imashnake.animite.api.anilist.sanitize.profile.User.Companion.profileColorToHex
 import com.imashnake.animite.banner.NestedScrollBannerLayout
@@ -276,6 +277,7 @@ fun ProfileScreen(
                                             updateAnimeListsOrder = viewModel::updateAnimeLists,
                                             updateMangaListsOrder = viewModel::updateMangaLists,
                                             updateEntry = viewModel::updateMediaListEntry,
+                                            favouriteEntry = viewModel::toggleFavourite,
                                             onNavigateToMediaItem = onNavigateToMediaItem,
                                             showUserDescription = showUserDescription,
                                             onUserDescriptionClick = { showUserDescriptionSheet = true },
@@ -532,7 +534,8 @@ private fun UserTabs(
     mangaCollection: User.MediaCollection?,
     updateAnimeListsOrder: (List<String>) -> Unit,
     updateMangaListsOrder: (List<String>) -> Unit,
-    updateEntry: (params: EntryUpdateParams) -> Unit,
+    updateEntry: (type: Media.Small.Type, params: EntryUpdateParams) -> Unit,
+    favouriteEntry: (type: Media.Small.Type, id: Int) -> Unit,
     onNavigateToMediaItem: (MediaPage) -> Unit,
     showUserDescription: Boolean,
     onUserDescriptionClick: () -> Unit,
@@ -666,7 +669,8 @@ private fun UserTabs(
                         listVisibility = animeListVisibility,
                         updateMediaListsOrder = updateAnimeListsOrder,
                         onNavigateToMediaItem = onNavigateToMediaItem,
-                        updateEntry = updateEntry,
+                        updateEntry = { updateEntry(Media.Small.Type.ANIME, it) },
+                        favouriteEntry = { favouriteEntry(Media.Small.Type.ANIME, it) },
                         useExpressiveProgressIndicator = useExpressiveProgressIndicator,
                         contentPadding = mediaTabContentPadding,
                     )
@@ -675,7 +679,8 @@ private fun UserTabs(
                         listVisibility = mangaListVisibility,
                         updateMediaListsOrder = updateMangaListsOrder,
                         onNavigateToMediaItem = onNavigateToMediaItem,
-                        updateEntry = updateEntry,
+                        updateEntry = { updateEntry(Media.Small.Type.MANGA, it) },
+                        favouriteEntry = { favouriteEntry(Media.Small.Type.MANGA, it) },
                         useExpressiveProgressIndicator = useExpressiveProgressIndicator,
                         contentPadding = mediaTabContentPadding,
                     )

@@ -20,4 +20,17 @@ fragment MediaTracking on Media {
     nextAiringEpisode {
         episode
     }
+    isFavourite
+    mediaListEntry {
+        startedAt {
+            year
+            month
+            day
+        }
+        completedAt {
+            year
+            month
+            day
+        }
+    }
 }
