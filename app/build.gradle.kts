@@ -12,20 +12,16 @@ plugins {
 android {
     defaultConfig {
         applicationId = "com.imashnake.animite"
-        versionCode = 54
-        versionName = "0.7.9-alpha02"
+        versionCode = 56
+        versionName = "0.7.11-alpha01"
     }
 
     signingConfigs {
         register("release") {
-            val storeFilePath: String? by project
-            val storePass: String? by project
-            val key: String? by project
-            val keyPass: String? by project
-            this.storeFile = storeFilePath?.let { file(it) }
-            this.storePassword = storePass
-            this.keyAlias = key
-            this.keyPassword = keyPass
+            storeFile = project.findProperty("storeFilePath")?.let { file(it) }
+            storePassword = project.findProperty("storePass").toString()
+            keyAlias = project.findProperty("key").toString()
+            keyPassword = project.findProperty("keyPass").toString()
         }
     }
 
@@ -69,16 +65,7 @@ tasks.withType<KotlinCompile>().configureEach {
     )
 }
 
-// TODO: Remove when Dagger bumps Kotlin metadata dependency to 2.3.0
-//  (see also https://github.com/google/dagger/issues/5059)
-configurations.configureEach {
-    resolutionStrategy.force("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.10")
-}
-
 dependencies {
-    // Workaround conflicting androidx-concurrent-futures from compose & androidx-junit
-    implementation("androidx.concurrent:concurrent-futures:1.3.0")
-
     implementation(projects.api.anilist)
     implementation(projects.api.mal)
     implementation(projects.api.preferences)
