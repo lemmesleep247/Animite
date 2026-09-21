@@ -12,8 +12,8 @@ plugins {
 android {
     defaultConfig {
         applicationId = "com.imashnake.animite"
-        versionCode = 59
-        versionName = "0.7.13-alpha01"
+        versionCode = 61
+        versionName = "0.7.14-alpha02"
     }
 
     signingConfigs {
@@ -27,7 +27,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            optimization { enable = true }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName(
                 if (System.getenv("Animite") == "true") "release" else "debug"
