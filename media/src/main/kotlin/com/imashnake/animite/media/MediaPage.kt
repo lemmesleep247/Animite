@@ -2,10 +2,14 @@
 
 package com.imashnake.animite.media
 
+import android.app.DownloadManager
+import android.content.ClipData
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Companion.Down
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Companion.Up
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.SharedTransitionScope
@@ -96,6 +100,8 @@ import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -157,6 +163,8 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import me.saket.telephoto.ExperimentalTelephotoApi
+import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import kotlin.math.absoluteValue
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -165,7 +173,9 @@ import kotlin.time.Duration.Companion.seconds
 private const val RECOMMENDATIONS = "Recommendations"
 private const val RELATIONS = "Relations"
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class,
+    ExperimentalTelephotoApi::class
+)
 @Composable
 @Suppress(
     "CognitiveComplexMethod",
@@ -178,6 +188,8 @@ fun MediaPage(
     deviceScreenCornerRadius: Int,
     useDarkTheme: Boolean,
     isAmoled: Boolean,
+    zoomableMediaImage: String?,
+    setZoomableMediaImage: (imageUrl: String?) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     contentWindowInsets: WindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
@@ -187,6 +199,8 @@ fun MediaPage(
     val horizontalInsets = insetPaddingValues.horizontalOnly
 
     val scrollState = rememberScrollState()
+
+    val context = LocalContext.current
 
     val media by viewModel.media.collectAsState()
     val source by viewModel.source.collectAsState()
@@ -205,8 +219,6 @@ fun MediaPage(
     val creditPagerState = rememberPagerState(pageCount = { listSize })
     val creditSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
     val coroutineScope = rememberCoroutineScope()
-
-    var isExpanded by rememberSaveable { mutableStateOf(false) }
 
     val deviceScreenCornerRadiusDp = with(LocalDensity.current) {
         deviceScreenCornerRadius.toDp()
@@ -258,6 +270,9 @@ fun MediaPage(
                                                 modifier = bannerModifier
                                                     .skipToLookaheadSize()
                                                     .bannerParallax(scrollState)
+                                                    .clickable {
+                                                        setZoomableMediaImage(media.bannerImage)
+                                                    }
                                             )
                                         }
                                     },
@@ -465,7 +480,7 @@ fun MediaPage(
                             image = media.data?.coverImage,
                             tag = null,
                             label = null,
-                            onClick = {},
+                            onClick = { setZoomableMediaImage(media.data?.coverImage) },
                             modifier = Modifier.sharedBounds(
                                 rememberSharedContentState(
                                     SharedContentKey(
@@ -482,6 +497,7 @@ fun MediaPage(
 
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        onClick = onBack,
                         contentDescription = stringResource(R.string.back),
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -490,11 +506,92 @@ fun MediaPage(
                                 start = LocalPaddings.current.medium,
                                 top = LocalPaddings.current.small
                             )
-                            .clip(CircleShape)
-                            .clickable(enabled = !isExpanded) { onBack() }
-                            .padding(LocalPaddings.current.small),
-                        tint = if (isSystemInDarkTheme()) Color.White else Color.Black
                     )
+                }
+
+                AnimatedVisibility(
+                    visible = zoomableMediaImage != null,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    Box {
+                        ZoomableAsyncImage(
+                            model = zoomableMediaImage,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.9f))
+                        )
+
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            onClick = { setZoomableMediaImage(null) },
+                            contentDescription = stringResource(R.string.back),
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(insetPaddingValues)
+                                .padding(
+                                    start = LocalPaddings.current.medium,
+                                    top = LocalPaddings.current.small
+                                )
+                        )
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(LocalPaddings.current.medium),
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(insetPaddingValues)
+                                .padding(
+                                    end = LocalPaddings.current.medium,
+                                    bottom = LocalPaddings.current.small
+                                )
+                        ) {
+                            Icon(
+                                imageVector = ImageVector.vectorResource(R.drawable.open),
+                                onClick = {
+                                    val appIntent = Intent(Intent.ACTION_VIEW, zoomableMediaImage?.toUri())
+                                    context.startActivity(appIntent)
+                                },
+                            )
+
+                            val clipboard = LocalClipboard.current
+                            val scope = rememberCoroutineScope()
+                            Icon(
+                                imageVector = ImageVector.vectorResource(R.drawable.link),
+                                onClick = {
+                                    val clipData = ClipData.newPlainText("Image URL", zoomableMediaImage)
+                                    val clipEntry = ClipEntry(clipData)
+                                    scope.launch {
+                                        clipboard.setClipEntry(clipEntry)
+                                    }
+                                },
+                            )
+
+                            var isDownloadQueued by remember { mutableStateOf(false) }
+                            AnimatedContent(targetState = isDownloadQueued) {
+                                if (!it) {
+                                    Icon(
+                                        imageVector = ImageVector.vectorResource(R.drawable.download),
+                                        onClick = {
+                                            zoomableMediaImage?.let { image ->
+                                                val downloadManager =
+                                                    context.getSystemService(DownloadManager::class.java)
+                                                val request = viewModel.requestDownloadImage(image)
+                                                val downloadId = downloadManager.enqueue(request)
+
+                                                if (downloadId != -1L) {
+                                                    isDownloadQueued = true
+                                                }
+                                            }
+                                        },
+                                    )
+                                } else {
+                                    Icon(imageVector = ImageVector.vectorResource(R.drawable.download_done))
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -705,6 +802,28 @@ fun MediaPage(
             }
         }
     }
+
+    BackHandler(enabled = zoomableMediaImage != null) {
+        setZoomableMediaImage(null)
+    }
+}
+
+@Composable
+private fun Icon(
+    imageVector: ImageVector,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    contentDescription: String? = null,
+) {
+    Icon(
+        imageVector = imageVector,
+        contentDescription = contentDescription,
+        modifier = modifier
+            .clip(CircleShape)
+            .clickable(enabled = onClick != null) { onClick?.invoke() }
+            .padding(LocalPaddings.current.small),
+        tint = if (isSystemInDarkTheme()) Color.White else Color.Black
+    )
 }
 
 @Composable
@@ -1478,7 +1597,7 @@ private fun LoadingMediaRankings(modifier: Modifier = Modifier) {
                 Box(
                     modifier = Modifier
                         .clip(
-                            when(it) {
+                            when (it) {
                                 0 -> ButtonGroupDefaults.connectedLeadingButtonShape
                                 1 -> ButtonGroupDefaults.connectedMiddleButtonShapes().shape
                                 else -> ButtonGroupDefaults.connectedTrailingButtonShape

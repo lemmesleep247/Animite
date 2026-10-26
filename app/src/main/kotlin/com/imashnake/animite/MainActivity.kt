@@ -31,8 +31,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -169,6 +171,8 @@ fun MainScreen(
         } else false
     }
 
+    var zoomableMediaImage by rememberSaveable { mutableStateOf<String?>(null) }
+
     // TODO: Refactor to use Scaffold once AnimatedVisibility issues are fixed;
     //  see https://issuetracker.google.com/issues/258270139.
     Box(modifier) {
@@ -213,6 +217,8 @@ fun MainScreen(
                             onBack = navController::navigateUp,
                             onNavigateToMediaItem = navController::navigate,
                             onNavigateToExplore = navController::navigate,
+                            zoomableMediaImage = zoomableMediaImage,
+                            setZoomableMediaImage = { zoomableMediaImage = it },
                             useDarkTheme = useDarkTheme,
                             isAmoled = isAmoled,
                             deviceScreenCornerRadius = deviceScreenCornerRadius,
@@ -313,7 +319,8 @@ fun MainScreen(
                 )
             },
             isFabVisible = currentBackStackEntry?.destination?.hasRoute<SettingsPage>() == false
-                    && currentBackStackEntry?.destination?.hasRoute<ExploreRoute>() == false,
+                    && currentBackStackEntry?.destination?.hasRoute<ExploreRoute>() == false
+                    && zoomableMediaImage == null,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(
